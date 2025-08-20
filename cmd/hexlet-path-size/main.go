@@ -1,7 +1,15 @@
 package main
 
-import "fmt"
+import (
+	"log"
+	"os"
+
+	pathsize "code"
+)
 
 func main() {
-	fmt.Print("Hello from Hexlet!")
+	app := pathsize.NewApp()
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
 }
