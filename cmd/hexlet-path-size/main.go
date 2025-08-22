@@ -1,15 +1,14 @@
 package main
 
 import (
-	"log"
-	"os"
-
-	pathsize "code"
+	"code"
+	"fmt"
 )
 
 func main() {
-	app := pathsize.NewApp()
-	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+	size, err := code.GetSize("C:\\Users\\Admin\\Desktop\\English\\useful-language-module4.pdf")
+	if err != nil {
+		return
 	}
+	fmt.Println(size)
 }
