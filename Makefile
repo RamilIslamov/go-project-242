@@ -1,5 +1,5 @@
-# Makefile
 .PHONY: build run clean
+
 BIN := bin/hexlet-path-size.exe
 
 build: $(BIN)

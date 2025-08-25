@@ -2,7 +2,6 @@ package code
 
 import (
 	"code"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,7 +25,7 @@ func TestGetSize_File(t *testing.T) {
 		t.Fatalf("GetSize(file) error = %v", err)
 	}
 
-	want := fmt.Sprintf("%dB\t%s\n", int64(5), file)
+	want := int64(5)
 	if got != want {
 		t.Fatalf("GetSize(file) = %q, want %q", got, want)
 	}
@@ -48,7 +47,7 @@ func TestGetSize_DirFirstLevelOnly(t *testing.T) {
 		t.Fatalf("GetSize(dir) error = %v", err)
 	}
 
-	want := fmt.Sprintf("%dB\t%s\n", int64(7), dir)
+	want := int64(7)
 	if got != want {
 		t.Fatalf("GetSize(dir) = %q, want %q", got, want)
 	}
@@ -58,5 +57,50 @@ func TestGetSize_PathNotExist(t *testing.T) {
 	_, err := code.GetSize(filepath.Join(t.TempDir(), "nope.txt"))
 	if err == nil {
 		t.Fatalf("expected error for non-existent path, got nil")
+	}
+}
+
+func TestFormatSize(t *testing.T) {
+	const (
+		KB = int64(1024)
+		MB = KB * 1024
+		GB = MB * 1024
+		TB = GB * 1024
+	)
+
+	tests := []struct {
+		name  string
+		size  int64
+		human bool
+		want  string
+	}{
+		{"bytes_non_human", 123, false, "123B"},
+		{"zero_non_human", 0, false, "0B"},
+		{"zero_human", 0, true, "0B"},
+
+		{"999B_human", 999, true, "999B"},
+		{"1023B_human", 1023, true, "1023B"},
+
+		{"1KB", 1 * KB, true, "1KB"},
+		{"2KB", 2 * KB, true, "2KB"},
+		{"1MB", 1 * MB, true, "1MB"},
+
+		{"1.5KB", 1536, true, "1.5KB"},
+		{"round_to_2_0KB", 1997, true, "2.0KB"},
+
+		{"10MB", 10 * MB, true, "10MB"},
+		{"5GB", 5 * GB, true, "5GB"},
+		{"5TB", 5 * TB, true, "5TB"},
+
+		{"large_non_human", 1536, false, "1536B"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := code.FormatSize(tt.size, tt.human)
+			if got != tt.want {
+				t.Fatalf("FormatSize(%d, %v) = %q, want %q", tt.size, tt.human, got, tt.want)
+			}
+		})
 	}
 }

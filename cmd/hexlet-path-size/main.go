@@ -2,13 +2,12 @@ package main
 
 import (
 	"code"
-	"fmt"
+	"os"
 )
 
 func main() {
-	size, err := code.GetSize("C:\\Users\\Admin\\Desktop\\English\\useful-language-module4.pdf")
-	if err != nil {
-		return
+	app := code.NewApp()
+	if err := app.Run(os.Args); err != nil {
+		os.Exit(1)
 	}
-	fmt.Println(size)
 }
