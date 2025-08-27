@@ -4,6 +4,7 @@ import (
 	"fmt"
 	urfaveCli "github.com/urfave/cli/v2"
 	"os"
+	"strings"
 )
 
 func NewApp() *urfaveCli.App {
@@ -16,6 +17,11 @@ func NewApp() *urfaveCli.App {
 				Aliases: []string{"H"},
 				Usage:   "human readable sizes",
 			},
+			&urfaveCli.BoolFlag{
+				Name:    "all",
+				Aliases: []string{"a"},
+				Usage:   "include hidden files and directories",
+			},
 		},
 		Action: func(c *urfaveCli.Context) error {
 			if c.Args().Len() == 0 {
@@ -23,8 +29,9 @@ func NewApp() *urfaveCli.App {
 			}
 			path := c.Args().First()
 			human := c.Bool("human")
+			all := c.Bool("all")
 
-			size, err := GetSize(path)
+			size, err := GetSize(path, all)
 			if err != nil {
 				return err
 			}
@@ -38,13 +45,13 @@ func NewApp() *urfaveCli.App {
 	}
 }
 
-func GetSize(path string) (int64, error) {
+func GetSize(path string, all bool) (int64, error) {
 	fi, err := os.Lstat(path)
 	if err != nil {
 		return 0, err
 	}
 	if !fi.IsDir() {
-		return fi.Size(), nil
+		return sizeF(fi, all)
 	}
 
 	entries, err := os.ReadDir(path)
@@ -52,18 +59,7 @@ func GetSize(path string) (int64, error) {
 		return 0, err
 	}
 
-	var sum int64
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		info, err := e.Info()
-		if err != nil {
-			return 0, err
-		}
-		sum += info.Size()
-	}
-	return sum, nil
+	return sizeD(entries, all)
 }
 
 func FormatSize(size int64, human bool) string {
@@ -84,4 +80,33 @@ func FormatSize(size int64, human bool) string {
 		return fmt.Sprintf("%.0f%s", val, units[i])
 	}
 	return fmt.Sprintf("%.1f%s", val, units[i])
+}
+
+func sizeF(fi os.FileInfo, all bool) (int64, error) {
+	if !all {
+		if strings.HasPrefix(fi.Name(), ".") {
+			return 0, nil
+		}
+	}
+	return fi.Size(), nil
+}
+
+func sizeD(entries []os.DirEntry, all bool) (int64, error) {
+	var sum int64
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			return 0, err
+		}
+		if !all {
+			if strings.HasPrefix(e.Name(), ".") {
+				continue
+			}
+		}
+		sum += info.Size()
+	}
+	return sum, nil
 }

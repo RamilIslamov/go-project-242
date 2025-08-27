@@ -16,11 +16,11 @@ func writeFile(t *testing.T, dir, name, content string) string {
 	return p
 }
 
-func TestGetSize_File(t *testing.T) {
+func TestGetSize_Hidden_File_True(t *testing.T) {
 	dir := t.TempDir()
-	file := writeFile(t, dir, "f.txt", "hello")
+	file := writeFile(t, dir, ".f.txt", "hello")
 
-	got, err := code.GetSize(file)
+	got, err := code.GetSize(file, true)
 	if err != nil {
 		t.Fatalf("GetSize(file) error = %v", err)
 	}
@@ -31,30 +31,69 @@ func TestGetSize_File(t *testing.T) {
 	}
 }
 
-func TestGetSize_DirFirstLevelOnly(t *testing.T) {
+func TestGetSize_Hidden_File_False(t *testing.T) {
+	dir := t.TempDir()
+	file := writeFile(t, dir, ".hidden.txt", "hello")
+
+	got, err := code.GetSize(file, false)
+	if err != nil {
+		t.Fatalf("GetSize(file) error = %v", err)
+	}
+
+	want := int64(0)
+	if got != want {
+		t.Fatalf("GetSize(file) = %q, want %q", got, want)
+	}
+}
+
+func TestGetSize_DirFirstLevelOnly_No_Hidden_Files(t *testing.T) {
 	dir := t.TempDir()
 
 	writeFile(t, dir, "a.bin", "aaa")
 	writeFile(t, dir, "b.bin", "bbbb")
+	writeFile(t, dir, "c.bin", "cc")
 	sub := filepath.Join(dir, "sub")
 	if err := os.Mkdir(sub, 0o755); err != nil {
 		t.Fatalf("Mkdir(sub): %v", err)
 	}
 	writeFile(t, sub, "deep.txt", "xxxxxxxxxx")
 
-	got, err := code.GetSize(dir)
+	got, err := code.GetSize(dir, false)
 	if err != nil {
 		t.Fatalf("GetSize(dir) error = %v", err)
 	}
 
-	want := int64(7)
+	want := int64(9)
+	if got != want {
+		t.Fatalf("GetSize(dir) = %q, want %q", got, want)
+	}
+}
+
+func TestGetSize_DirFirstLevelOnly_With_Hidden_Files(t *testing.T) {
+	dir := t.TempDir()
+
+	writeFile(t, dir, "a.bin", "aaa")
+	writeFile(t, dir, ".b.bin", "bbbb")
+	writeFile(t, dir, ".c.bin", "cc")
+	sub := filepath.Join(dir, "sub")
+	if err := os.Mkdir(sub, 0o755); err != nil {
+		t.Fatalf("Mkdir(sub): %v", err)
+	}
+	writeFile(t, sub, "deep.txt", "xxxxxxxxxx")
+
+	got, err := code.GetSize(dir, false)
+	if err != nil {
+		t.Fatalf("GetSize(dir) error = %v", err)
+	}
+
+	want := int64(3)
 	if got != want {
 		t.Fatalf("GetSize(dir) = %q, want %q", got, want)
 	}
 }
 
 func TestGetSize_PathNotExist(t *testing.T) {
-	_, err := code.GetSize(filepath.Join(t.TempDir(), "nope.txt"))
+	_, err := code.GetSize(filepath.Join(t.TempDir(), "nope.txt"), false)
 	if err == nil {
 		t.Fatalf("expected error for non-existent path, got nil")
 	}
