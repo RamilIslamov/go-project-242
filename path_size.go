@@ -53,8 +53,12 @@ func NewApp() *urfaveCli.App {
 	}
 }
 
-func GetPathSize(path string) (int64, error) {
-	return GetSize(path, false, false)
+func GetPathSize(path string, human, all, recursive bool) string {
+	size, err := GetSize(path, recursive, all)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%s\t%s\n", FormatSize(size, human), path)
 }
 
 func GetSize(path string, recursive, all bool) (int64, error) {
