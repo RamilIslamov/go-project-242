@@ -6,9 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"syscall"
 )
 
 func NewApp() *urfaveCli.App {
@@ -61,10 +59,9 @@ func GetSize(path string, recursive, all bool) (int64, error) {
 		return 0, err
 	}
 
-	if !all && isHidden(fi) {
+	if !all && isHiddenInfo(fi) {
 		return 0, nil
 	}
-
 	if !fi.IsDir() {
 		return fileSize(fi, all)
 	}
@@ -108,20 +105,21 @@ func dirSize(path string, recursive, all bool) (int64, error) {
 
 	var sum int64
 	for _, e := range entries {
-		full := filepath.Join(path, e.Name())
+		name := e.Name()
+
+		if !all && isHiddenName(name) {
+			continue
+		}
+
+		full := filepath.Join(path, name)
+
+		if e.Type()&fs.ModeSymlink != 0 {
+			continue
+		}
 
 		info, err := e.Info()
 		if err != nil {
 			return 0, err
-		}
-
-		if !all && isHidden(info) {
-			continue
-		}
-
-		mode := info.Mode()
-		if mode&fs.ModeSymlink != 0 {
-			continue
 		}
 
 		if info.IsDir() {
@@ -140,17 +138,10 @@ func dirSize(path string, recursive, all bool) (int64, error) {
 	return sum, nil
 }
 
-func isHidden(fi os.FileInfo) bool {
-	name := fi.Name()
-
-	if runtime.GOOS != "windows" {
-		return strings.HasPrefix(name, ".")
-	}
-
-	if d, ok := fi.Sys().(*syscall.Win32FileAttributeData); ok {
-		if d.FileAttributes&syscall.FILE_ATTRIBUTE_HIDDEN != 0 {
-			return true
-		}
-	}
+func isHiddenName(name string) bool {
 	return strings.HasPrefix(name, ".")
+}
+
+func isHiddenInfo(fi os.FileInfo) bool {
+	return isHiddenName(fi.Name())
 }
