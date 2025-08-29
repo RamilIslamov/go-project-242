@@ -1,15 +1,20 @@
 .PHONY: build run clean
 
-BIN := bin/hexlet-path-size.exe
+BIN := bin/hexlet-path-size$(EXE)
+EXE :=
+
+ifeq ($(OS),Windows_NT)
+    EXE := .exe
+endif
 
 build: $(BIN)
 
 $(BIN):
-	@if not exist bin mkdir bin
+	mkdir -p bin
 	go build -o $(BIN) ./cmd/hexlet-path-size
 
 run: build
 	$(BIN)
 
 clean:
-	@if exist bin rmdir /S /Q bin
+	rm -rf bin

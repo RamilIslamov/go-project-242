@@ -3,8 +3,12 @@ package code
 import (
 	"fmt"
 	urfaveCli "github.com/urfave/cli/v2"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 )
 
 func NewApp() *urfaveCli.App {
@@ -22,6 +26,11 @@ func NewApp() *urfaveCli.App {
 				Aliases: []string{"a"},
 				Usage:   "include hidden files and directories",
 			},
+			&urfaveCli.BoolFlag{
+				Name:    "recursive",
+				Aliases: []string{"r"},
+				Usage:   "recursive size of directories",
+			},
 		},
 		Action: func(c *urfaveCli.Context) error {
 			if c.Args().Len() == 0 {
@@ -30,8 +39,9 @@ func NewApp() *urfaveCli.App {
 			path := c.Args().First()
 			human := c.Bool("human")
 			all := c.Bool("all")
+			recursive := c.Bool("recursive")
 
-			size, err := GetSize(path, all)
+			size, err := GetSize(path, recursive, all)
 			if err != nil {
 				return err
 			}
@@ -45,21 +55,29 @@ func NewApp() *urfaveCli.App {
 	}
 }
 
-func GetSize(path string, all bool) (int64, error) {
+func GetSize(path string, recursive, all bool) (int64, error) {
 	fi, err := os.Lstat(path)
 	if err != nil {
 		return 0, err
 	}
+
+	if !all && isHidden(fi) {
+		return 0, nil
+	}
+
 	if !fi.IsDir() {
-		return sizeF(fi, all)
+		return fileSize(fi, all)
 	}
+	return dirSize(path, recursive, all)
+}
 
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		return 0, err
+func fileSize(fi os.FileInfo, all bool) (int64, error) {
+	if !all {
+		if strings.HasPrefix(fi.Name(), ".") {
+			return 0, nil
+		}
 	}
-
-	return sizeD(entries, all)
+	return fi.Size(), nil
 }
 
 func FormatSize(size int64, human bool) string {
@@ -82,31 +100,57 @@ func FormatSize(size int64, human bool) string {
 	return fmt.Sprintf("%.1f%s", val, units[i])
 }
 
-func sizeF(fi os.FileInfo, all bool) (int64, error) {
-	if !all {
-		if strings.HasPrefix(fi.Name(), ".") {
-			return 0, nil
-		}
+func dirSize(path string, recursive, all bool) (int64, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return 0, err
 	}
-	return fi.Size(), nil
-}
 
-func sizeD(entries []os.DirEntry, all bool) (int64, error) {
 	var sum int64
 	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
+		full := filepath.Join(path, e.Name())
+
 		info, err := e.Info()
 		if err != nil {
 			return 0, err
 		}
-		if !all {
-			if strings.HasPrefix(e.Name(), ".") {
-				continue
-			}
+
+		if !all && isHidden(info) {
+			continue
 		}
+
+		mode := info.Mode()
+		if mode&fs.ModeSymlink != 0 {
+			continue
+		}
+
+		if info.IsDir() {
+			if recursive {
+				sz, err := dirSize(full, recursive, all)
+				if err != nil {
+					return 0, err
+				}
+				sum += sz
+			}
+			continue
+		}
+
 		sum += info.Size()
 	}
 	return sum, nil
+}
+
+func isHidden(fi os.FileInfo) bool {
+	name := fi.Name()
+
+	if runtime.GOOS != "windows" {
+		return strings.HasPrefix(name, ".")
+	}
+
+	if d, ok := fi.Sys().(*syscall.Win32FileAttributeData); ok {
+		if d.FileAttributes&syscall.FILE_ATTRIBUTE_HIDDEN != 0 {
+			return true
+		}
+	}
+	return strings.HasPrefix(name, ".")
 }
