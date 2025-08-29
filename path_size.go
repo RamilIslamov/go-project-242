@@ -96,8 +96,8 @@ func FormatSize(size int64, human bool) string {
 		i++
 	}
 
-	if val == float64(int64(val)) {
-		return fmt.Sprintf("%.0f%s", val, units[i])
+	if i == 0 {
+		return fmt.Sprintf("%d%s", int64(val), units[i])
 	}
 	return fmt.Sprintf("%.1f%s", val, units[i])
 }
