@@ -39,14 +39,12 @@ func NewApp() *urfaveCli.App {
 			all := c.Bool("all")
 			recursive := c.Bool("recursive")
 
-			size, err := GetSize(path, recursive, all)
+			size, err := GetPathSize(path, human, recursive, all)
 			if err != nil {
 				return err
 			}
 
-			formatted := FormatSize(size, human)
-
-			fmt.Printf("%s\t%s\n", formatted, path)
+			fmt.Printf("%s\t%s\n", size, path)
 
 			return nil
 		},
