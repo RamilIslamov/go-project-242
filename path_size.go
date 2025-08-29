@@ -39,7 +39,7 @@ func NewApp() *urfaveCli.App {
 			all := c.Bool("all")
 			recursive := c.Bool("recursive")
 
-			size, err := GetPathSize(path, recursive, all)
+			size, err := GetSize(path, recursive, all)
 			if err != nil {
 				return err
 			}
@@ -53,12 +53,19 @@ func NewApp() *urfaveCli.App {
 	}
 }
 
-func GetPathSize(path string, recursive, all bool) (int64, error) {
+func GetPathSize(path string, human, all, recursive bool) string {
+	size, err := GetSize(path, recursive, all)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%s\t%s\n", FormatSize(size, human), path)
+}
+
+func GetSize(path string, recursive, all bool) (int64, error) {
 	fi, err := os.Lstat(path)
 	if err != nil {
 		return 0, err
 	}
-
 	if !all && isHiddenInfo(fi) {
 		return 0, nil
 	}
