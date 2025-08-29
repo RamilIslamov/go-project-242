@@ -39,7 +39,7 @@ func NewApp() *urfaveCli.App {
 			all := c.Bool("all")
 			human := c.Bool("human")
 
-			size, err := GetPathSize(path, recursive, all, human)
+			size, err := GetPathSize(path, recursive, human, all)
 			if err != nil {
 				return err
 			}
@@ -51,7 +51,7 @@ func NewApp() *urfaveCli.App {
 	}
 }
 
-func GetPathSize(path string, recursive, all, human bool) (string, error) {
+func GetPathSize(path string, recursive, human, all bool) (string, error) {
 	size, err := GetSize(path, recursive, all)
 	if err != nil {
 		return "", err
