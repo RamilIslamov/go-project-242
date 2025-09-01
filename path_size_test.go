@@ -1,19 +1,8 @@
 package code
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
-
-func writeFile(t *testing.T, dir, name, content string) string {
-	t.Helper()
-	p := filepath.Join(dir, name)
-	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
-		t.Fatalf("writeFile: %v", err)
-	}
-	return p
-}
 
 func TestGetSize_Hidden_File_True(t *testing.T) {
 	got, err := getSize("./testdata/.f.txt", false, true)
