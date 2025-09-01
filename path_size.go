@@ -2,64 +2,21 @@ package code
 
 import (
 	"fmt"
-	urfaveCli "github.com/urfave/cli/v2"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-func NewApp() *urfaveCli.App {
-	return &urfaveCli.App{
-		Name:  "hexlet-path-size",
-		Usage: "print size of a file or directory",
-		Flags: []urfaveCli.Flag{
-			&urfaveCli.BoolFlag{
-				Name:    "human",
-				Aliases: []string{"H"},
-				Usage:   "human readable sizes",
-			},
-			&urfaveCli.BoolFlag{
-				Name:    "all",
-				Aliases: []string{"a"},
-				Usage:   "include hidden files and directories",
-			},
-			&urfaveCli.BoolFlag{
-				Name:    "recursive",
-				Aliases: []string{"r"},
-				Usage:   "recursive size of directories",
-			},
-		},
-		Action: func(c *urfaveCli.Context) error {
-			if c.Args().Len() == 0 {
-				return urfaveCli.Exit("please provide a path", 1)
-			}
-			path := c.Args().First()
-			recursive := c.Bool("recursive")
-			all := c.Bool("all")
-			human := c.Bool("human")
-
-			size, err := GetPathSize(path, recursive, human, all)
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("%s\t%s\n", size, path)
-
-			return nil
-		},
-	}
-}
-
 func GetPathSize(path string, recursive, human, all bool) (string, error) {
-	size, err := GetSize(path, recursive, all)
+	size, err := getSize(path, recursive, all)
 	if err != nil {
 		return "", err
 	}
-	return FormatSize(size, human), nil
+	return formatSize(size, human), nil
 }
 
-func GetSize(path string, recursive, all bool) (int64, error) {
+func getSize(path string, recursive, all bool) (int64, error) {
 	fi, err := os.Lstat(path)
 	if err != nil {
 		return 0, err
@@ -75,14 +32,14 @@ func GetSize(path string, recursive, all bool) (int64, error) {
 
 func fileSize(fi os.FileInfo, all bool) (int64, error) {
 	if !all {
-		if strings.HasPrefix(fi.Name(), ".") {
+		if isHiddenInfo(fi) {
 			return 0, nil
 		}
 	}
 	return fi.Size(), nil
 }
 
-func FormatSize(size int64, human bool) string {
+func formatSize(size int64, human bool) string {
 	if !human {
 		return fmt.Sprintf("%dB", size)
 	}
@@ -105,33 +62,33 @@ func FormatSize(size int64, human bool) string {
 func dirSize(path string, recursive, all bool) (int64, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return 0, err
+		warnf("cannot read dir %q: %v", path, err)
+		return 0, nil
 	}
 
 	var sum int64
 	for _, e := range entries {
-		name := e.Name()
-
-		if !all && isHiddenName(name) {
+		info, subErr := e.Info()
+		if subErr != nil {
+			warnf("cannot stat %q: %v", filepath.Join(path, e.Name()), subErr)
+			continue
+		}
+		if !all && isHiddenInfo(info) {
 			continue
 		}
 
-		full := filepath.Join(path, name)
+		full := filepath.Join(path, info.Name())
 
-		if e.Type()&fs.ModeSymlink != 0 {
+		if info.Mode()&fs.ModeSymlink != 0 {
 			continue
-		}
-
-		info, err := e.Info()
-		if err != nil {
-			return 0, err
 		}
 
 		if info.IsDir() {
 			if recursive {
-				sz, err := dirSize(full, recursive, all)
-				if err != nil {
-					return 0, err
+				sz, dirErr := dirSize(full, recursive, all)
+				if dirErr != nil {
+					warnf("cannot descend into %q: %v", full, dirErr)
+					continue
 				}
 				sum += sz
 			}
@@ -143,10 +100,13 @@ func dirSize(path string, recursive, all bool) (int64, error) {
 	return sum, nil
 }
 
-func isHiddenName(name string) bool {
-	return strings.HasPrefix(name, ".")
+func isHiddenInfo(fi os.FileInfo) bool {
+	return strings.HasPrefix(fi.Name(), ".")
 }
 
-func isHiddenInfo(fi os.FileInfo) bool {
-	return isHiddenName(fi.Name())
+func warnf(format string, args ...any) {
+	_, err := fmt.Fprintf(os.Stderr, "warning: "+format+"\n", args...)
+	if err != nil {
+		return
+	}
 }
